@@ -36,7 +36,7 @@ struct fmt_main fmt_bitshares;
 #define FORMAT_NAME             "BitShares Wallet"
 #define FORMAT_TAG              "$BitShares$"
 #define TAG_LENGTH              (sizeof(FORMAT_TAG) - 1)
-#define ALGORITHM_NAME          "SHA512/AES/secp256k1/SHA256 64/" ARCH_BITS_STR
+#define ALGORITHM_NAME          "SHA512/AES/secp256k1/SHA256 " ARCH_BITS_STR "/" ARCH_BITS_STR
 #define BENCHMARK_COMMENT       ""
 #define BENCHMARK_LENGTH        7
 #define PLAINTEXT_LENGTH        125

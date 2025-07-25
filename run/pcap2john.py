@@ -9,6 +9,40 @@
 #
 # The code itself is still a fabrication of Dhiru.
 
+# This software is
+#
+# Copyright (c) 2013-2018 Dhiru Kholia <dhiru at openwall.com>
+# Copyright (c) 2013 Lukas Odzioba <ukasz at openwall dot net>
+# Copyright (c) 2014 Alexey Lapitsky <lex at realisticgroup.com>
+# Copyright (c) 2014 m3g9tr0n (Spiros Fraganastasis) <spirosfr.1985 at gmail.com>
+# Copyright (c) 2021-2024 exploide <me at exploide.net>
+# Copyright (c) 2025 Albert Veli <albert.veli at gmail.com>
+#
+# and it is hereby released to the general public under the following terms:
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted.
+
+# pcap_parser_s7() is under GNU GPL v3 per the below statement:
+
+# s7tojohn.py, parse .pcap files and output JtR compatible hashes.
+# Extended by Narendra Kangralkar <narendrakangralkar at gmail.com>
+# and Dhiru Kholia <dhiru at openwall.com>
+#
+# S7 protocol, is used for communication between Engineering Stations,
+# SCADA, HMI & PLC and can be protected by password.
+#
+# Original Authors: Alexander Timorin, Dmitry Sklyarov
+#
+# http://scadastrangelove.org
+#
+# __author__      = "Aleksandr Timorin"
+# __copyright__   = "Copyright 2013, Positive Technologies"
+# __license__     = "GNU GPL v3"
+# __version__     = "1.2"
+# __maintainer__  = "Aleksandr Timorin"
+# __email__       = "atimorin@gmail.com"
+# __status__      = "Development"
 
 import base64
 from binascii import hexlify
@@ -1290,6 +1324,89 @@ def pcap_parser_http_authorization(fname):
                         pkt["HTTPRequest"].Method.decode('ascii'), opts["uri"],
                         opts["nonce"], opts["nc"], opts["cnonce"], opts["qop"]))
 
+def pcap_parser_snmpv3(fname):
+    """
+    Parse SNMPv3 packets to extract authentication and privacy information.
+    Supports SNMPv3 with authentication (authNoPriv) and authentication
+    with privacy (authPriv). See:
+    https://tools.ietf.org/html/rfc3414
+    https://www.0x0ff.info/2013/snmpv3-authentification/
+    Note: it sets authProto to 0 which makes JtR try both
+          MD5 and SHA-1 for authentication. If you know the
+          authProto, you can change it to 1 (MD5) or 2 (SHA-1).
+          net-snmp supports MD5|SHA1|SHA224|SHA256|SHA384|SHA512
+          but currently only MD5 and SHA1 are supported in JtR.
+    """
+    import re
+    import dpkt
+    import binascii
+
+    with open(fname, 'rb') as f:
+        pcap = dpkt.pcap.Reader(f)
+
+        for ts, buf in pcap:
+            try:
+                eth = dpkt.ethernet.Ethernet(buf)
+                if not isinstance(eth.data, dpkt.ip.IP):
+                    continue
+                ip = eth.data
+                if not isinstance(ip.data, dpkt.udp.UDP):
+                    continue
+                udp = ip.data
+                if udp.dport != 161:
+                    continue
+
+                data = bytearray(udp.data)
+
+                # Find username (only supports printable ASCII usernames)
+                matches = re.findall(rb'\x04[\x01-\x20]([ -~]{3,32})', data)
+                if not matches:
+                    continue
+                username = matches[0].decode('ascii', 'ignore')
+
+                # Extract engineID
+                engid_index = data.find(b'\x04\x0b')
+                if engid_index == -1 or len(data) < engid_index + 13:
+                    continue
+                engine_id = data[engid_index+2:engid_index+13]
+
+                # Extract authParameters
+                auth_index = data.find(b'\x04\x0c')
+                if auth_index == -1 or len(data) < auth_index + 14:
+                    continue
+
+                auth_digest = data[auth_index+2:auth_index+14]
+                data[auth_index+2:auth_index+14] = b'\x00' * 12
+
+                # Extract privParameters (optional)
+                priv_index = data.find(b'\x04\x08')
+                priv_params = b''
+                if priv_index != -1 and len(data) >= priv_index + 10:
+                    priv_params = data[priv_index+2:priv_index+10]
+
+                # Build output
+                snmpv3_pdu_hex = binascii.hexlify(data).decode('ascii')
+                engine_id_hex = binascii.hexlify(engine_id).decode('ascii')
+                auth_digest_hex = binascii.hexlify(auth_digest).decode('ascii')
+                auth_proto_id = 0  # Let JtR try both MD5 and SHA1
+
+                if priv_params:
+                    priv_proto_id = 4
+                    priv_hex = binascii.hexlify(priv_params).decode('ascii')
+                    print('$SNMPv3$%d$%d$%s$%s$%s$%s' % (
+                        auth_proto_id, priv_proto_id,
+                        snmpv3_pdu_hex, engine_id_hex,
+                        auth_digest_hex, priv_hex))
+                else:
+                    priv_proto_id = 3
+                    print('$SNMPv3$%d$%d$%s$%s$%s' % (
+                        auth_proto_id, priv_proto_id,
+                        snmpv3_pdu_hex, engine_id_hex,
+                        auth_digest_hex))
+
+            except Exception:
+                pass  # Skip malformed packets silently
+
 
 ############################################################
 # original main, but now calls multiple 2john routines, all
@@ -1376,4 +1493,8 @@ if __name__ == "__main__":
             pcap_parser_s7(sys.argv[i])
         except:
             # sys.stderr.write("DEBUG: s7 parser could not handle input\n")
+            pass
+        try:
+            pcap_parser_snmpv3(sys.argv[i])
+        except:
             pass

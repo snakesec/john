@@ -1804,9 +1804,10 @@ out_ERROR_UNALLOWED:
 }
 
 /*
- * Advance stacked rules. We iterate main rules first and only then we
- * advance the stacked rules (and rewind the main rules). Repeat until
- * main rules are done with the last stacked rule.
+ * Advance stacked rules. We run all words through each main rule,
+ * rewinding the wordlist inbetween them. Each result from that is run
+ * through each stacked rule, rewinding the latter before advancing to
+ * next word (or next main rule).
  */
 int rules_advance_stack(rule_stack *ctx, int quiet)
 {
@@ -1816,7 +1817,7 @@ int rules_advance_stack(rule_stack *ctx, int quiet)
 		rules_stacked_number++;
 		if (!quiet)
 			log_event("+ Stacked Rule #%u: '%.100s' accepted",
-			          rules_stacked_number, ctx->rule->data);
+			          rules_stacked_number + 1, ctx->rule->data);
 	}
 
 	return !ctx->done;

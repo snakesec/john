@@ -43,7 +43,7 @@ john_register_one(&fmt_gost12256hash);
 #elif !JOHN_NO_SIMD && __SSE2__
 #define ALGORITHM_NAME          "GOST R 34.11-2012 128/128 SSE2 1x"
 #else
-#define ALGORITHM_NAME          "GOST R 34.11-2012 64/" ARCH_BITS_STR
+#define ALGORITHM_NAME          "GOST R 34.11-2012 " ARCH_BITS_STR "/" ARCH_BITS_STR
 #endif
 
 #define PLAINTEXT_LENGTH        125

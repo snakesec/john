@@ -34,7 +34,7 @@ john_register_one(&fmt_opencl_ssh);
 
 #define FORMAT_LABEL            "ssh-opencl"
 #define FORMAT_NAME             "SSH private key"
-#define ALGORITHM_NAME          "RSA/DSA/EC 3DES/AES OpenCL"
+#define ALGORITHM_NAME          "MD5/[3]DES/AES OpenCL"
 #define BINARY_SIZE             0
 #define BINARY_ALIGN            sizeof(uint32_t)
 #define SALT_SIZE               sizeof(*cur_salt)
@@ -62,6 +62,7 @@ typedef struct {
 	int sl;
 	int rounds;
 	int ciphertext_begin_offset;
+	int self_test_running;
 } ssh_salt;
 
 static ssh_out *output;
@@ -193,6 +194,8 @@ static void set_salt(void *salt)
 	memcpy((char*)currentsalt.salt, cur_salt->salt, currentsalt.sl);
 	memcpy((char*)currentsalt.ct, cur_salt->ct, currentsalt.ctl);
 
+	currentsalt.self_test_running = self_test_running;
+
 	HANDLE_CLERROR(clEnqueueWriteBuffer(queue[gpu_id], mem_setting,
 		CL_FALSE, 0, settingsize, &currentsalt, 0, NULL, NULL),
 	    "Salt transfer");
@@ -286,7 +289,7 @@ struct fmt_main fmt_opencl_ssh = {
 		MAX_KEYS_PER_CRYPT,
 		FMT_CASE | FMT_8_BIT | FMT_SPLIT_UNIFIES_CASE | FMT_HUGE_INPUT,
 		{
-			"KDF/cipher [0=MD5/AES 1=MD5/3DES 2=Bcrypt/AES]",
+			"KDF/cipher [0:MD5/AES 1:MD5/[3]DES]",
 			"iteration count",
 		},
 		{ FORMAT_TAG },
