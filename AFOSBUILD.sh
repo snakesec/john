@@ -57,4 +57,3 @@ source /opt/ANDRAX/john/venv/bin/activate
 cp -Rf andraxbin/* /opt/ANDRAX/bin
 
 chown -R andrax:andrax /opt/ANDRAX
-chmod -R 755 /opt/ANDRAX

@@ -9,7 +9,8 @@ import os
 save_dir = "andraxbin"
 progpath = "/opt/ANDRAX/john"
 
-extra_bins = [ "bitlocker2john",
+extra_bins = [ 
+"bitlocker2john",
 "SIPdump",
 "uaf2john",
 "benchmark-unify",
@@ -38,7 +39,8 @@ extra_bins = [ "bitlocker2john",
 "unafs",
 "rar2john",
 "base64conv",
-"unshadow" ]
+"unshadow"
+]
 
 str_pl_file = """#!/bin/bash
 
