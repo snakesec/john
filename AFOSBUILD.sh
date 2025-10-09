@@ -24,7 +24,7 @@ else
   exit 1
 fi
 
-make
+make -j4
 
 if [ $? -eq 0 ]
 then
