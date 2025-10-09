@@ -15,11 +15,7 @@
 #include "opencl_sha1.h"
 #include "opencl_md5_ctx.h"
 #include "opencl_mask.h"
-
-// Workaround for UHD Graphics 630 version "1.2(Jan 10 2025 21:16:54)"
-#if (__OS_X__ && gpu_intel(DEVICE_INFO))
-#define AES_BITSLICE 1
-#endif
+#define AES_BITSLICE
 #include "opencl_aes.h"
 
 typedef struct {

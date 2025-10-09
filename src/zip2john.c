@@ -924,10 +924,18 @@ static void print_and_cleanup(zip_context *ctx)
 	filenames = xstrdup(ctx->best_files[0].file_name);
 	bname = jtr_basename(ctx->archive.fname);
 
-	printf("%s%s%s:$pkzip$%x*%x*", bname,
-			 ctx->num_candidates == 1 ? "/" : "",
-			 ctx->num_candidates == 1 ? ctx->best_files[0].file_name : "",
-			 ctx->num_candidates, ctx->archive.check_bytes);
+	if (ctx->num_candidates == 1) {
+		/* sanitize here, as we don't need the raw file_name any more when exiting this function */
+		replace(ctx->best_files[0].file_name, ':', ' ');
+
+		printf("%s/%s:$pkzip$%x*%x*", bname,
+						ctx->best_files[0].file_name,
+						ctx->num_candidates,
+						ctx->archive.check_bytes);
+	} else {
+		printf("%s:$pkzip$%x*%x*", bname, ctx->num_candidates, ctx->archive.check_bytes);
+	}
+
 	if (checksum_only)
 		i = 0;
 	for (; i < ctx->num_candidates; ++i) {
@@ -962,9 +970,13 @@ static void print_and_cleanup(zip_context *ctx)
 
 	if (ctx->num_candidates > 1 && !once++)
 		fprintf(stderr,
-			"NOTE: It is assumed that all files in each archive have the same password.\n"
+			"Note: It is assumed that all files in each archive have the same password.\n"
 			"If that is not the case, the hash may be uncrackable. To avoid this, use\n"
 			"option -o to pick a file at a time.\n");
+
+	// Give warning to user for potentially large output of zip2john
+	fprintf(stderr,
+		"Note: It is normal for some outputs to be very large\n");
 
 	for (i = 0; i < ctx->num_candidates; ++i) {
 		MEM_FREE(ctx->best_files[i].hash_data);

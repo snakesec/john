@@ -140,6 +140,7 @@ static int john_omp_threads_new;
 #endif
 #endif
 #include "omp_autotune.h"
+#include "color.h"
 
 extern int dynamic_Register_formats(struct fmt_main **ptr);
 
@@ -188,13 +189,14 @@ char *john_terminal_locale = "C";
 
 uint64_t john_max_cands;
 
+char *john_session_name = "";
+
 static int children_ok = 1;
 
 static struct db_main database;
 static int loaded_extra_pots;
 static struct fmt_main dummy_format;
 
-static char *mode_exit_message = "";
 static int exit_status = 0;
 
 static void john_register_one(struct fmt_main *format)
@@ -729,8 +731,8 @@ static void john_mpi_wait(void)
 	if (john_main_process) {
 		log_event("Waiting for other node%s to terminate",
 		          mpi_p > 2 ? "s" : "");
-		fprintf(stderr, "Waiting for other node%s to terminate\n",
-		        mpi_p > 2 ? "s" : "");
+		fprintf(stderr, "Waiting for other node%s to terminate session%s\n",
+		        mpi_p > 2 ? "s" : "", john_session_name);
 		mpi_teardown();
 	}
 
@@ -1092,7 +1094,10 @@ static void john_load(void)
 			options.loader.flags |= DB_CRACKED;
 			ldr_init_database(&database, &options.loader);
 
-			if (!options.loader.showformats) {
+			if (options.loader.showformats) {
+				if (!options.loader.showformats_old)
+					fputs("[", stdout);
+			} else {
 				ldr_show_pot_file(&database, options.activepot);
 /*
  * Load optional extra (read-only) pot files. If an entry is a directory,
@@ -1333,12 +1338,12 @@ static void john_load(void)
 		} while ((current = current->next));
 
 		if (loop_db.plaintexts->count) {
-			log_event("- Reassembled %d split passwords for "
+			log_event("- Reassembled %ld split passwords for "
 			          "loopback", loop_db.plaintexts->count);
 			if (john_main_process &&
 			    options.verbosity >= VERB_DEFAULT)
 				fprintf(stderr,
-				        "Reassembled %d split passwords for "
+				        "Reassembled %ld split passwords for "
 				        "loopback\n",
 				        loop_db.plaintexts->count);
 		}
@@ -1565,6 +1570,12 @@ static void john_init(char *name, int argc, char **argv)
 #endif
 			cfg_init(CFG_FULL_NAME, 0);
 		}
+	}
+	color_init();
+
+	if (options.session) {
+		john_session_name = mem_alloc_tiny(strlen(options.session) + 4, MEM_ALIGN_NONE);
+		sprintf(john_session_name, " '%s'", options.session);
 	}
 
 #if HAVE_OPENCL
@@ -1826,7 +1837,7 @@ static void john_run(void)
 			event_pending = event_status = 1;
 
 		if (options.flags & FLG_SINGLE_CHK)
-			mode_exit_message = do_single_crack(&database);
+			do_single_crack(&database);
 		else
 		if (options.flags & FLG_WORDLIST_CHK)
 			do_wordlist_crack(&database, options.wordlist,
@@ -1955,15 +1966,11 @@ static void john_done(void)
 			log_event("%s", abort_msg);
 		} else if (children_ok) {
 			log_event("Session completed");
-			if (john_main_process) {
-				fprintf(stderr, "Session completed. %s\n", mode_exit_message);
-			}
+			if (john_main_process)
+				fprintf(stderr, "Session%s completed\n", john_session_name);
 		} else {
-			const char *msg =
-			    "Main process session completed, "
-			    "but some child processes failed";
-			log_event("%s", msg);
-			fprintf(stderr, "%s\n", msg);
+			log_event("Main process session completed, but some child processes failed");
+			fprintf(stderr, "Main process session%s completed, but some child processes failed\n", john_session_name);
 			exit_status = 1;
 		}
 		fmt_done(database.format);

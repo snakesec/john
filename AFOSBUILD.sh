@@ -2,7 +2,7 @@ rm -rf /opt/ANDRAX/john
 
 cd src
 
-./configure
+./configure CC=clang CXX=clang++
 
 if [ $? -eq 0 ]
 then
